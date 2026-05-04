@@ -1,470 +1,684 @@
-/**
- * KON-BAO Content Pipeline — Cloudflare Worker
- * Phase 1+2: Fetch from Moltbook, generate card SVG, store to R2, write to D1
- *
- * Cron: 6:30 AM IST = 1:00 AM UTC daily
- */
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>KON-BAO — Today's Post</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital@0;1&family=Courier+Prime:wght@400;700&family=Inter:wght@400;500&display=swap');
 
-import { buildCardSVG } from './card.js';
-import { expandPost } from './blog.js';
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-// ── The 7 daily background colours, cycling by day-of-year ───────────────────
-const BG_COLOURS = ['rose', 'slate', 'sage', 'amber', 'plum', 'teal', 'burgundy'];
+  :root {
+    --warm-bg: #F5F0E8;
+    --warm-surface: #EDE8DE;
+    --warm-border: rgba(0,0,0,0.1);
+    --text-primary: #1A1A18;
+    --text-secondary: #6B6860;
+    --text-muted: #9B9890;
+    --teal: #0F6E56;
+    --teal-light: #E1F5EE;
+    --red: #A32D2D;
+    --red-light: #FCEBEB;
+  }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+  body {
+    background: var(--warm-bg);
+    font-family: 'Inter', sans-serif;
+    color: var(--text-primary);
+    min-height: 100vh;
+    padding: 0 0 120px;
+  }
 
-/**
- * Get today's date in IST as YYYY-MM-DD
- */
-function getTodayIST() {
+  /* ── Header ── */
+  .header {
+    padding: 20px 20px 12px;
+    border-bottom: 0.5px solid var(--warm-border);
+    background: var(--warm-bg);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .header-title {
+    font-family: 'Courier Prime', monospace;
+    font-size: 13px;
+    letter-spacing: 3px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+  }
+  .header-date {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .status-pill {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-weight: 500;
+    background: var(--warm-surface);
+    color: var(--text-secondary);
+  }
+  .status-pill.ready { background: #E1F5EE; color: #0F6E56; }
+  .status-pill.loading { background: var(--warm-surface); color: var(--text-muted); }
+  .status-pill.error { background: #FCEBEB; color: #A32D2D; }
+
+  /* ── Sections ── */
+  .section {
+    margin: 16px 16px 0;
+    background: #fff;
+    border-radius: 16px;
+    border: 0.5px solid var(--warm-border);
+    overflow: hidden;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border-bottom: 0.5px solid var(--warm-border);
+  }
+  .section-label {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  /* Toggle */
+  .toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+  .toggle-track {
+    width: 36px;
+    height: 20px;
+    border-radius: 10px;
+    background: #ddd;
+    position: relative;
+    transition: background 0.2s;
+  }
+  .toggle-track.on { background: var(--teal); }
+  .toggle-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    transition: left 0.2s;
+  }
+  .toggle-track.on .toggle-thumb { left: 18px; }
+  .toggle-label { font-size: 12px; color: var(--text-secondary); }
+
+  /* ── Card section ── */
+  .card-preview {
+    padding: 16px;
+    display: flex;
+    justify-content: center;
+  }
+  .card-preview img, .card-preview object {
+    width: 100%;
+    max-width: 320px;
+    border-radius: 10px;
+    display: block;
+  }
+  .card-placeholder {
+    width: 100%;
+    max-width: 320px;
+    aspect-ratio: 1;
+    background: var(--warm-surface);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  /* ── Blog section ── */
+  .blog-title-wrap { padding: 14px 16px 0; }
+  .blog-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
+    line-height: 1.4;
+    color: var(--text-primary);
+    border: none;
+    background: transparent;
+    width: 100%;
+    resize: none;
+    outline: none;
+    font-weight: 400;
+  }
+  .blog-body-wrap { padding: 8px 16px 14px; }
+  .blog-body {
+    font-size: 14px;
+    line-height: 1.75;
+    color: var(--text-secondary);
+    border: none;
+    background: transparent;
+    width: 100%;
+    resize: none;
+    outline: none;
+    min-height: 180px;
+    font-family: 'Inter', sans-serif;
+  }
+  .blog-char-count {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-align: right;
+    padding: 0 16px 12px;
+  }
+
+  /* ── Hashtags section ── */
+  .hashtags-wrap {
+    padding: 14px 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .hashtag {
+    font-size: 13px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    background: var(--teal-light);
+    color: var(--teal);
+    font-family: 'Courier Prime', monospace;
+    letter-spacing: 0.5px;
+  }
+  .hashtag-copy-btn {
+    font-size: 12px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    background: var(--warm-surface);
+    color: var(--text-secondary);
+    border: 0.5px solid var(--warm-border);
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+  }
+  .hashtag-copy-btn:active { opacity: 0.7; }
+
+  /* ── Share section ── */
+  .share-row {
+    padding: 14px 16px;
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .share-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    min-width: 56px;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+  }
+  .share-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+  }
+  .share-icon.bluesky  { background: #E6F1FB; }
+  .share-icon.x        { background: #1A1A1A; }
+  .share-icon.instagram{ background: #FBEAF0; }
+  .share-icon.whatsapp { background: #EAF3DE; }
+  .share-icon.telegram { background: #E6F1FB; }
+  .share-icon.copy     { background: var(--warm-surface); }
+  .share-name {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-align: center;
+  }
+
+  /* ── Footer actions ── */
+  .footer-actions {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 12px 16px;
+    background: var(--warm-bg);
+    border-top: 0.5px solid var(--warm-border);
+    display: flex;
+    gap: 10px;
+  }
+  .btn {
+    flex: 1;
+    padding: 14px;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    transition: opacity 0.15s;
+  }
+  .btn:active { opacity: 0.8; }
+  .btn-approve {
+    background: var(--teal);
+    color: #fff;
+  }
+  .btn-skip {
+    background: var(--warm-surface);
+    color: var(--text-secondary);
+    border: 0.5px solid var(--warm-border);
+    flex: 0 0 90px;
+  }
+  .btn-approve.posted {
+    background: #639922;
+  }
+  .btn-approve:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* ── Loading / error states ── */
+  .loading-wrap {
+    padding: 40px 16px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+  .error-wrap {
+    padding: 20px 16px;
+    text-align: center;
+    color: var(--red);
+    font-size: 14px;
+    background: var(--red-light);
+    margin: 16px;
+    border-radius: 12px;
+  }
+
+  textarea { font-family: inherit; }
+  .skipped-banner {
+    margin: 16px;
+    padding: 14px 16px;
+    background: var(--warm-surface);
+    border-radius: 12px;
+    font-size: 14px;
+    color: var(--text-secondary);
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <span class="header-title">KON&#x2013;BAO</span>
+    <span class="status-pill loading" id="status-pill">Loading...</span>
+  </div>
+  <div class="header-date" id="header-date"></div>
+</div>
+
+<div id="main-content">
+  <div class="loading-wrap">Fetching today's post...</div>
+</div>
+
+<div class="footer-actions" id="footer-actions" style="display:none">
+  <button class="btn btn-skip" id="btn-skip" onclick="skipToday()">Skip</button>
+  <button class="btn btn-approve" id="btn-approve" onclick="approvePost()">Approve &amp; Post</button>
+</div>
+
+<script>
+const WORKER_URL = 'https://konbao-pipeline.ashokva.workers.dev';
+
+let postData = null;
+let includeCard = true;
+let includeBlog = true;
+
+function today() {
   const now = new Date();
-  // IST = UTC + 5:30
-  const istOffset = 5.5 * 60 * 60 * 1000;
-  const istDate = new Date(now.getTime() + istOffset);
-  return istDate.toISOString().slice(0, 10);
+  const ist = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
+  return ist.toISOString().slice(0, 10);
 }
 
-/**
- * Get today's background colour by cycling through the 7-colour array
- * Uses day-of-year so the colour is stable for the whole day
- */
-function getDailyColour(dateStr) {
-  const date = new Date(dateStr);
-  const start = new Date(date.getFullYear(), 0, 0);
-  const diff = date - start;
-  const dayOfYear = Math.floor(diff / (1000 * 60 * 60 * 24));
-  return BG_COLOURS[dayOfYear % BG_COLOURS.length];
+function formatDate(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 
-/**
- * Detect if a post is two-part (has a "turn" — a second voice or twist)
- * KON-BAO posts often have a main statement + a quieter second line.
- *
- * Split logic:
- * - If post contains "—" (em dash) as a sentence separator → split there
- * - If post has two distinct sentences with a clear tonal shift → split
- * - Otherwise → single flowing post
- */
-function detectTextSplit(rawText) {
-  const text = rawText.trim();
+async function loadPost() {
+  const dateStr = today();
+  document.getElementById('header-date').textContent = formatDate(dateStr);
 
-  // Pattern 0: paragraph break (\n\n) — KON-BAO's primary writing format
-  const paragraphs = text.split(/\n\n+/);
-  if (paragraphs.length >= 2) {
-    const partOne = paragraphs[0].trim();
-    const partTwo = paragraphs.slice(1).join(' ').trim();
-    if (partOne.split(' ').length >= 4 && partTwo.split(' ').length >= 4) {
-      return { isTwoPart: true, partOne, partTwo };
-    }
-  }
-
-  // Pattern 1: ALL CAPS first line + mixed case second (single newline)
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-  if (lines.length >= 2) {
-    const firstIsUpper = lines[0] === lines[0].toUpperCase() && lines[0].length > 10;
-    const secondIsMixed = lines[1] !== lines[1].toUpperCase();
-    if (firstIsUpper && secondIsMixed) {
-      return { isTwoPart: true, partOne: lines[0], partTwo: lines.slice(1).join(' ') };
-    }
-  }
-
-  // Pattern 2: split at natural midpoint for single flowing post
-  const midMatch = text.match(/^(.{40,150}[.?!,;])\s+(.{20,})$/s);
-  if (midMatch) {
-    return { isTwoPart: true, partOne: midMatch[1].trim(), partTwo: midMatch[2].trim() };
-  }
-
-  // No good split — single block
-  return { isTwoPart: false, partOne: text, partTwo: text };
-}
-
-/**
- * Fetch the latest KON-BAO post from Moltbook
- */
-async function fetchLatestPost(apiKey) {
-  const url = 'https://www.moltbook.com/api/v1/posts?submolt=general&author=kon-bao&limit=5';
-
-  const response = await fetch(url, {
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Moltbook fetch failed: ${response.status} ${response.statusText}`);
-  }
-
-  const data = await response.json();
-
-  // Handle different possible response shapes from Moltbook
-  const posts = data.posts || data.data || data || [];
-  if (!Array.isArray(posts) || posts.length === 0) {
-    throw new Error('No posts returned from Moltbook');
-  }
-
-  // Return the most recent post
-  return posts[0];
-}
-
-/**
- * Check if today's post is already in D1 (avoid duplicate processing)
- */
-async function postExistsForToday(db, date) {
-  const result = await db
-    .prepare('SELECT id FROM posts WHERE date = ?')
-    .bind(date)
-    .first();
-  return !!result;
-}
-
-/**
- * Write the post record to D1
- */
-async function writePostRecord(db, {
-  id, date, rawText, partOne, partTwo, isTwoPart, bgColour,
-}) {
-  await db
-    .prepare(`
-      INSERT INTO posts (id, date, raw_text, part_one, part_two, is_two_part, bg_colour, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')
-    `)
-    .bind(id, date, rawText, partOne, partTwo || null, isTwoPart ? 1 : 0, bgColour)
-    .run();
-}
-
-// ── Main handler ──────────────────────────────────────────────────────────────
-
-export default {
-
-  // Cron trigger — runs at 1:00 AM UTC (6:30 AM IST)
-  async scheduled(event, env, ctx) {
-    ctx.waitUntil(runPipeline(env));
-  },
-
-  // HTTP handler — for manual testing via browser/curl
-  // GET /trigger → runs the pipeline
-  // GET /status  → shows today's D1 record
-  // GET /test-fetch → shows raw Moltbook response
-  async fetch(request, env) {
-    const url = new URL(request.url);
-
-    if (url.pathname === '/trigger') {
-      // Manual trigger for testing
-      try {
-        const result = await runPipeline(env);
-        return new Response(JSON.stringify(result, null, 2), {
-          headers: { 'Content-Type': 'application/json' },
-        });
-      } catch (err) {
-        return new Response(JSON.stringify({ error: err.message }), {
-          status: 500,
-          headers: { 'Content-Type': 'application/json' },
-        });
-      }
-    }
-
-    if (url.pathname === '/test-fetch') {
-      try {
-        const url2 = 'https://www.moltbook.com/api/v1/posts?submolt=general&author=kon-bao&limit=3';
-        const resp = await fetch(url2, {
-          headers: { 'Authorization': `Bearer ${env.MOLTBOOK_API_KEY}` },
-        });
-        const data = await resp.json();
-        return new Response(JSON.stringify(data, null, 2), {
-          headers: { 'Content-Type': 'application/json' },
-        });
-      } catch (err) {
-        return new Response(JSON.stringify({ error: err.message }), { status: 500 });
-      }
-    }
-
-    // Serve card SVG from R2
-    if (url.pathname.startsWith('/card/')) {
-      const date = url.pathname.replace('/card/', '');
-      const key = `cards/${date}/card.svg`;
-      const obj = await env.KONBAO_BUCKET.get(key);
-      if (!obj) return new Response('Card not found', { status: 404 });
-      return new Response(obj.body, {
-        headers: {
-          'Content-Type': 'image/svg+xml',
-          'Access-Control-Allow-Origin': '*',
-          'Cache-Control': 'public, max-age=86400',
-        },
-      });
-    }
-
-    // Approve endpoint
-    if (url.pathname === '/approve' && request.method === 'POST') {
-      const body = await request.json();
-      const { date, postId, blogTitle, blogBody, includeCard, includeBlog, pngBase64 } = body;
-
-      // Update D1 with edits and mark approved
-      await env.KONBAO_DB
-        .prepare(`UPDATE posts SET
-          blog_title = ?, blog_body = ?,
-          include_png = ?, include_blog = ?,
-          status = 'approved', approved_at = datetime('now')
-          WHERE id = ?`)
-        .bind(blogTitle, blogBody, includeCard ? 1 : 0, includeBlog ? 1 : 0, postId)
-        .run();
-
-      // Post to Bluesky with image if available
-      let blueskyUri = null;
-      try {
-        let pngBuffer = null;
-        if (pngBase64) {
-          // Convert base64 PNG back to binary
-          const binaryStr = atob(pngBase64);
-          pngBuffer = new Uint8Array(binaryStr.length);
-          for (let i = 0; i < binaryStr.length; i++) {
-            pngBuffer[i] = binaryStr.charCodeAt(i);
-          }
-        }
-        blueskyUri = await postToBluesky(blogTitle, env, pngBuffer);
-      } catch(e) {
-        console.log('Bluesky post failed:', e.message);
-      }
-
-      if (blueskyUri) {
-        await env.KONBAO_DB
-          .prepare('UPDATE posts SET bluesky_uri = ? WHERE id = ?')
-          .bind(blueskyUri, postId)
-          .run();
-      }
-
-      return new Response(JSON.stringify({
-        status: 'approved',
-        blueskyUri,
-      }), {
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-      });
-    }
-
-    // Skip endpoint
-    if (url.pathname === '/skip' && request.method === 'POST') {
-      const body = await request.json();
-      await env.KONBAO_DB
-        .prepare("UPDATE posts SET status = 'skipped' WHERE date = ?")
-        .bind(body.date)
-        .run();
-      return new Response(JSON.stringify({ status: 'skipped' }), {
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-      });
-    }
-
-    // CORS preflight
-    if (request.method === 'OPTIONS') {
-      return new Response(null, {
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type',
-        },
-      });
-    }
-
-    // Add CORS to status endpoint too
-    if (url.pathname === '/status') {
-      const date = getTodayIST();
-      const record = await env.KONBAO_DB
-        .prepare('SELECT * FROM posts WHERE date = ?')
-        .bind(date)
-        .first();
-      return new Response(JSON.stringify(record || { message: 'No post for today yet' }, null, 2), {
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-      });
-    }
-
-    return new Response(JSON.stringify({
-      service: 'KON-BAO Pipeline',
-      routes: ['/trigger', '/status', '/card/:date', '/approve', '/skip'],
-      cron: '1:00 AM UTC (6:30 AM IST)',
-    }), { headers: { 'Content-Type': 'application/json' } });
-  },
-};
-
-// ── Pipeline orchestrator ─────────────────────────────────────────────────────
-
-async function runPipeline(env) {
-  const log = [];
-  const date = getTodayIST();
-  log.push(`[${new Date().toISOString()}] Pipeline starting for ${date}`);
-
-  // 1. Check if already processed today
-  const alreadyDone = await postExistsForToday(env.KONBAO_DB, date);
-  if (alreadyDone) {
-    log.push(`Already processed for ${date}. Skipping.`);
-    return { status: 'skipped', date, log };
-  }
-
-  // 2. Fetch from Moltbook
-  log.push('Fetching from Moltbook...');
-  const post = await fetchLatestPost(env.MOLTBOOK_API_KEY);
-  log.push(`Fetched post ID: ${post.id || 'unknown'}`);
-
-  const rawText = post.content || post.text || post.body || '';
-  if (!rawText) throw new Error('Post has no text content');
-
-  // 3. Detect text split
-  const { isTwoPart, partOne, partTwo } = detectTextSplit(rawText);
-  log.push(`Text split: ${isTwoPart ? 'two-part' : 'single'}`);
-  if (isTwoPart) {
-    log.push(`Part 1: "${partOne.slice(0, 60)}..."`);
-    log.push(`Part 2: "${partTwo.slice(0, 60)}..."`);
-  }
-
-  // 4. Assign daily colour
-  const bgColour = getDailyColour(date);
-  log.push(`Daily colour: ${bgColour}`);
-
-  // 5. Generate a unique ID if Moltbook doesn't provide one
-  const postId = post.id || post._id || `konbao-${date}`;
-
-  // 6. Write to D1
-  await writePostRecord(env.KONBAO_DB, {
-    id: postId,
-    date,
-    rawText,
-    partOne,
-    partTwo,
-    isTwoPart,
-    bgColour,
-  });
-  log.push('Written to D1 ✓');
-
-  // 7. Generate card SVG and store to R2
-  log.push('Generating card SVG...');
-  const svgString = buildCardSVG(partOne, partTwo || partOne, bgColour);
-
-  const svgKey = `cards/${date}/card.svg`;
-  await env.KONBAO_BUCKET.put(svgKey, svgString, {
-    httpMetadata: { contentType: 'image/svg+xml' },
-  });
-  log.push(`Card SVG stored to R2: ${svgKey} ✓`);
-
-  // 8. Update D1 record with card key
-  await env.KONBAO_DB
-    .prepare('UPDATE posts SET png_r2_key = ? WHERE id = ?')
-    .bind(svgKey, postId)
-    .run();
-  log.push('D1 updated with card key ✓');
-
-  // 9. Blog expansion + hashtags via Claude API
-  log.push('Expanding post with Claude API...');
-  let blogTitle = null, blogBody = null, hashtags = [];
   try {
-    const expanded = await expandPost(rawText, env.CLAUDE_API_KEY);
-    blogTitle = expanded.title;
-    blogBody = expanded.body;
-    hashtags = expanded.hashtags;
+    const res = await fetch(`${WORKER_URL}/status`);
+    const data = await res.json();
 
-    // Store blog text to R2
-    const blogKey = `cards/${date}/blog.txt`;
-    const blogContent = `TITLE: ${blogTitle}\n\nHASHTAGS: ${hashtags.map(h => '#' + h).join(' ')}\n\n---\n\n${blogBody}`;
-    await env.KONBAO_BUCKET.put(blogKey, blogContent, {
-      httpMetadata: { contentType: 'text/plain' },
+    if (!data || data.message) {
+      showError('No post found for today. Pipeline may not have run yet.');
+      return;
+    }
+
+    postData = data;
+
+    if (data.status === 'approved') {
+      showApproved(data);
+      return;
+    }
+
+    if (data.status === 'skipped') {
+      showSkipped(data);
+      return;
+    }
+
+    renderPost(data);
+
+  } catch (err) {
+    showError('Could not connect to pipeline. ' + err.message);
+  }
+}
+
+function renderPost(data) {
+  const pill = document.getElementById('status-pill');
+  pill.textContent = 'Ready';
+  pill.className = 'status-pill ready';
+
+  const blogData = (() => {
+    try { return JSON.parse(data.blog_body || '{}'); } catch(e) { return { body: data.blog_body, hashtags: [] }; }
+  })();
+  const blogBody = blogData.body || data.blog_body || '';
+  const hashtags = blogData.hashtags || [];
+  const blogTitle = data.blog_title || '';
+
+  const cardUrl = data.png_r2_key
+    ? `${WORKER_URL}/card/${data.date}`
+    : null;
+
+  document.getElementById('main-content').innerHTML = `
+
+    <!-- Card section -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-label">Visual Card</span>
+        <div class="toggle" onclick="toggleSection('card', this)">
+          <div class="toggle-track on" id="toggle-card"><div class="toggle-thumb"></div></div>
+          <span class="toggle-label">Include</span>
+        </div>
+      </div>
+      <div class="card-preview">
+        ${cardUrl
+          ? `<img src="${cardUrl}" alt="Today's KON-BAO card" onerror="this.outerHTML='<div class=card-placeholder>Card preview unavailable</div>'">`
+          : `<div class="card-placeholder">Card generating...</div>`}
+      </div>
+    </div>
+
+    <!-- Blog section -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-label">Blog Draft</span>
+        <div class="toggle" onclick="toggleSection('blog', this)">
+          <div class="toggle-track on" id="toggle-blog"><div class="toggle-thumb"></div></div>
+          <span class="toggle-label">Include</span>
+        </div>
+      </div>
+      <div class="blog-title-wrap">
+        <textarea class="blog-title" id="blog-title" rows="2" placeholder="Blog title...">${escHtml(blogTitle)}</textarea>
+      </div>
+      <div class="blog-body-wrap">
+        <textarea class="blog-body" id="blog-body" rows="12" placeholder="Blog content..." oninput="updateCharCount()">${escHtml(blogBody)}</textarea>
+      </div>
+      <div class="blog-char-count" id="char-count">${blogBody.length} chars</div>
+    </div>
+
+    <!-- Hashtags section -->
+    ${hashtags.length > 0 ? `
+    <div class="section">
+      <div class="section-header">
+        <span class="section-label">Hashtags</span>
+        <button class="hashtag-copy-btn" onclick="copyHashtags()">Copy all</button>
+      </div>
+      <div class="hashtags-wrap" id="hashtags-wrap">
+        ${hashtags.map(h => `<span class="hashtag">#${escHtml(h)}</span>`).join('')}
+      </div>
+    </div>
+    ` : ''}
+
+    <!-- Share section -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-label">Share</span>
+      </div>
+      <div class="share-row">
+        <button class="share-btn" onclick="shareBluesky()">
+          <div class="share-icon bluesky">🦋</div>
+          <span class="share-name">Bluesky</span>
+        </button>
+        <button class="share-btn" onclick="shareX()">
+          <div class="share-icon x" style="color:#fff;font-family:monospace;font-weight:700;font-size:16px;">𝕏</div>
+          <span class="share-name">X</span>
+        </button>
+        <button class="share-btn" onclick="shareInstagram()">
+          <div class="share-icon instagram">📷</div>
+          <span class="share-name">Instagram</span>
+        </button>
+        <button class="share-btn" onclick="shareWhatsApp()">
+          <div class="share-icon whatsapp">💬</div>
+          <span class="share-name">WhatsApp</span>
+        </button>
+        <button class="share-btn" onclick="shareTelegram()">
+          <div class="share-icon telegram">✈️</div>
+          <span class="share-name">Telegram</span>
+        </button>
+        <button class="share-btn" onclick="copyText()">
+          <div class="share-icon copy">📋</div>
+          <span class="share-name">Copy</span>
+        </button>
+      </div>
+    </div>
+
+  `;
+
+  document.getElementById('footer-actions').style.display = 'flex';
+}
+
+function toggleSection(section, el) {
+  const track = el.querySelector('.toggle-track');
+  track.classList.toggle('on');
+  if (section === 'card') includeCard = track.classList.contains('on');
+  if (section === 'blog') includeBlog = track.classList.contains('on');
+}
+
+function updateCharCount() {
+  const body = document.getElementById('blog-body');
+  if (body) document.getElementById('char-count').textContent = body.value.length + ' chars';
+}
+
+function copyHashtags() {
+  const tags = postData ? (JSON.parse(postData.blog_body || '{}').hashtags || []) : [];
+  const text = tags.map(h => '#' + h).join(' ');
+  navigator.clipboard.writeText(text).then(() => alert('Hashtags copied!'));
+}
+
+function getShareText() {
+  const title = document.getElementById('blog-title')?.value || '';
+  const tags = postData ? (JSON.parse(postData.blog_body || '{}').hashtags || []) : [];
+  const tagStr = tags.slice(0, 3).map(h => '#' + h).join(' ');
+  return `${title}\n\n${tagStr}\n\nashokva.net`;
+}
+
+function shareBluesky() {
+  const text = encodeURIComponent(getShareText());
+  window.open(`https://bsky.app/intent/compose?text=${text}`, '_blank');
+}
+
+function shareX() {
+  const text = encodeURIComponent(getShareText());
+  window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank');
+}
+
+function shareWhatsApp() {
+  const text = encodeURIComponent(getShareText());
+  window.open(`https://wa.me/?text=${text}`, '_blank');
+}
+
+function shareTelegram() {
+  const text = encodeURIComponent(getShareText());
+  window.open(`https://t.me/share/url?url=ashokva.net&text=${text}`, '_blank');
+}
+
+function shareInstagram() {
+  navigator.clipboard.writeText(getShareText()).then(() => {
+    alert('Caption copied. Open Instagram and paste it.');
+  });
+}
+
+function copyText() {
+  navigator.clipboard.writeText(getShareText()).then(() => alert('Copied!'));
+}
+
+async function svgToPngBlob(svgUrl) {
+  // Fetch SVG, draw to canvas, export as PNG blob
+  const svgRes = await fetch(svgUrl);
+  const svgText = await svgRes.text();
+  const blob = new Blob([svgText], { type: 'image/svg+xml' });
+  const url = URL.createObjectURL(blob);
+
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1080;
+      canvas.height = 1080;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, 1080, 1080);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(pngBlob => {
+        if (pngBlob) resolve(pngBlob);
+        else reject(new Error('Canvas PNG export failed'));
+      }, 'image/png');
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('SVG load failed'));
+    };
+    img.src = url;
+  });
+}
+
+async function approvePost() {
+  const btn = document.getElementById('btn-approve');
+  btn.disabled = true;
+  btn.textContent = 'Converting card...';
+
+  const title = document.getElementById('blog-title')?.value || postData.blog_title;
+  const body = document.getElementById('blog-body')?.value || '';
+
+  // Convert SVG card to PNG in the browser
+  let pngBase64 = null;
+  if (includeCard && postData.png_r2_key) {
+    try {
+      btn.textContent = 'Converting card...';
+      const cardUrl = `${WORKER_URL}/card/${postData.date}`;
+      const pngBlob = await svgToPngBlob(cardUrl);
+      const arrayBuf = await pngBlob.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuf);
+      let binary = '';
+      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+      pngBase64 = btoa(binary);
+    } catch(e) {
+      console.log('PNG conversion failed, posting without image:', e.message);
+    }
+  }
+
+  btn.textContent = 'Posting...';
+
+  try {
+    const res = await fetch(`${WORKER_URL}/approve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        date: postData.date,
+        postId: postData.id,
+        blogTitle: title,
+        blogBody: body,
+        includeCard,
+        includeBlog,
+        pngBase64,
+      }),
     });
 
-    // Update D1 with blog content and hashtags
-    await env.KONBAO_DB
-      .prepare('UPDATE posts SET blog_title = ?, blog_body = ?, blog_r2_key = ?, hashtags = ? WHERE id = ?')
-      .bind(blogTitle, blogBody, blogKey, JSON.stringify(hashtags), postId)
-      .run();
+    const result = await res.json();
 
-    log.push(`Blog expanded: "${blogTitle}" ✓`);
-    log.push(`Hashtags: ${hashtags.map(h => '#' + h).join(' ')} ✓`);
-  } catch (err) {
-    log.push(`Blog expansion failed (non-fatal): ${err.message}`);
+    if (result.status === 'approved') {
+      btn.textContent = 'Posted to Bluesky ✓';
+      btn.className = 'btn btn-approve posted';
+      document.getElementById('status-pill').textContent = 'Approved';
+      document.getElementById('status-pill').className = 'status-pill ready';
+      document.getElementById('btn-skip').style.display = 'none';
+    } else {
+      btn.disabled = false;
+      btn.textContent = 'Approve & Post';
+      alert('Something went wrong: ' + (result.error || 'Unknown error'));
+    }
+  } catch(err) {
+    btn.disabled = false;
+    btn.textContent = 'Approve & Post';
+    alert('Error: ' + err.message);
   }
-
-  return {
-    status: 'success',
-    date,
-    postId,
-    bgColour,
-    isTwoPart,
-    preview: rawText.slice(0, 100),
-    cardKey: svgKey,
-    blogTitle,
-    hashtags,
-    log,
-  };
 }
 
-// ── Bluesky posting ───────────────────────────────────────────────────────────
-async function postToBluesky(text, env, pngBuffer = null) {
-  // Step 1: create session
-  const sessionRes = await fetch('https://bsky.social/xrpc/com.atproto.server.createSession', {
+async function skipToday() {
+  if (!confirm('Skip today\'s post?')) return;
+
+  await fetch(`${WORKER_URL}/skip`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      identifier: env.BLUESKY_HANDLE,
-      password: env.BLUESKY_APP_PASSWORD,
-    }),
+    body: JSON.stringify({ date: postData?.date }),
   });
 
-  if (!sessionRes.ok) throw new Error('Bluesky auth failed');
-  const session = await sessionRes.json();
-
-  // Step 2: upload image if provided
-  let imageEmbed = null;
-  if (pngBuffer) {
-    const uploadRes = await fetch('https://bsky.social/xrpc/com.atproto.repo.uploadBlob', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'image/png',
-        'Authorization': `Bearer ${session.accessJwt}`,
-      },
-      body: pngBuffer,
-    });
-
-    if (uploadRes.ok) {
-      const uploadData = await uploadRes.json();
-      imageEmbed = {
-        $type: 'app.bsky.embed.images',
-        images: [{
-          image: uploadData.blob,
-          alt: text.slice(0, 100),
-        }],
-      };
-    }
-  }
-
-  // Step 3: build post text (leave room for hashtags)
-  const postText = text.slice(0, 280);
-
-  // Step 4: create post with optional image
-  const record = {
-    $type: 'app.bsky.feed.post',
-    text: postText,
-    createdAt: new Date().toISOString(),
-  };
-  if (imageEmbed) record.embed = imageEmbed;
-
-  const postRes = await fetch('https://bsky.social/xrpc/com.atproto.repo.createRecord', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${session.accessJwt}`,
-    },
-    body: JSON.stringify({
-      repo: session.did,
-      collection: 'app.bsky.feed.post',
-      record,
-    }),
-  });
-
-  if (!postRes.ok) throw new Error('Bluesky post failed');
-  const post = await postRes.json();
-  return post.uri;
+  showSkipped(postData);
 }
+
+function showApproved(data) {
+  document.getElementById('status-pill').textContent = 'Approved';
+  document.getElementById('status-pill').className = 'status-pill ready';
+  document.getElementById('main-content').innerHTML = `
+    <div class="skipped-banner">
+      Today's post was approved and sent. ✓<br>
+      <small style="color:var(--text-muted)">${data.bluesky_uri || ''}</small>
+    </div>
+  `;
+}
+
+function showSkipped(data) {
+  document.getElementById('status-pill').textContent = 'Skipped';
+  document.getElementById('status-pill').className = 'status-pill';
+  document.getElementById('main-content').innerHTML = `
+    <div class="skipped-banner">Today's post was skipped.</div>
+  `;
+}
+
+function showError(msg) {
+  document.getElementById('status-pill').textContent = 'Error';
+  document.getElementById('status-pill').className = 'status-pill error';
+  document.getElementById('main-content').innerHTML = `<div class="error-wrap">${msg}</div>`;
+}
+
+function escHtml(str) {
+  return String(str || '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+loadPost();
+</script>
+</body>
+</html>
