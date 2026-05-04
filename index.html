@@ -409,9 +409,12 @@ function renderPost(data) {
     <div class="section">
       <div class="section-header">
         <span class="section-label">Visual Card</span>
-        <div class="toggle" onclick="toggleSection('card', this)">
-          <div class="toggle-track on" id="toggle-card"><div class="toggle-thumb"></div></div>
-          <span class="toggle-label">Include</span>
+        <div style="display:flex;align-items:center;gap:10px">
+          <button class="hashtag-copy-btn" id="download-btn" onclick="downloadPng()">Download PNG</button>
+          <div class="toggle" onclick="toggleSection('card', this)">
+            <div class="toggle-track on" id="toggle-card"><div class="toggle-thumb"></div></div>
+            <span class="toggle-label">Include</span>
+          </div>
         </div>
       </div>
       <div class="card-preview">
@@ -543,6 +546,32 @@ function shareInstagram() {
 
 function copyText() {
   navigator.clipboard.writeText(getShareText()).then(() => alert('Copied!'));
+}
+
+async function downloadPng() {
+  const btn = document.getElementById('download-btn');
+  const original = btn.textContent;
+  btn.textContent = 'Converting...';
+  btn.disabled = true;
+
+  try {
+    const cardUrl = `${WORKER_URL}/card/${postData.date}`;
+    const pngBlob = await svgToPngBlob(cardUrl);
+    const url = URL.createObjectURL(pngBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `konbao-${postData.date}.png`;
+    a.click();
+    URL.revokeObjectURL(url);
+    btn.textContent = 'Downloaded ✓';
+    setTimeout(() => {
+      btn.textContent = original;
+      btn.disabled = false;
+    }, 2000);
+  } catch(e) {
+    btn.textContent = 'Failed — try again';
+    btn.disabled = false;
+  }
 }
 
 async function svgToPngBlob(svgUrl) {
