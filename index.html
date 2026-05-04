@@ -370,6 +370,7 @@ async function loadPost() {
     postData = data;
 
     if (data.status === 'approved') {
+      renderPost(data);
       showApproved(data);
       return;
     }
@@ -648,14 +649,18 @@ async function skipToday() {
 }
 
 function showApproved(data) {
-  document.getElementById('status-pill').textContent = 'Approved';
+  document.getElementById('status-pill').textContent = 'Posted';
   document.getElementById('status-pill').className = 'status-pill ready';
-  document.getElementById('main-content').innerHTML = `
-    <div class="skipped-banner">
-      Today's post was approved and sent. ✓<br>
-      <small style="color:var(--text-muted)">${data.bluesky_uri || ''}</small>
-    </div>
-  `;
+  // Show a confirmation banner but keep rendering the full post
+  const banner = document.createElement('div');
+  banner.className = 'skipped-banner';
+  banner.style.background = '#E1F5EE';
+  banner.style.color = '#0F6E56';
+  banner.style.margin = '16px 16px 0';
+  banner.textContent = 'Posted to Bluesky ✓ — share buttons still active below';
+  document.getElementById('main-content').prepend(banner);
+  // Hide the approve/skip buttons
+  document.getElementById('footer-actions').style.display = 'none';
 }
 
 function showSkipped(data) {
