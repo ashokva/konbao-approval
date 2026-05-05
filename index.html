@@ -512,40 +512,70 @@ function copyHashtags() {
 }
 
 function getShareText() {
-  const title = document.getElementById('blog-title')?.value || '';
-  const tags = postData ? (JSON.parse(postData.blog_body || '{}').hashtags || []) : [];
-  const tagStr = tags.slice(0, 3).map(h => '#' + h).join(' ');
-  return `${title}\n\n${tagStr}\n\nashokva.net`;
+  const titleEl = document.getElementById('blog-title');
+  const title = titleEl ? titleEl.value : (postData ? postData.blog_title || '' : '');
+  let hashtags = [];
+  try {
+    const parsed = JSON.parse(postData?.blog_body || '{}');
+    hashtags = parsed.hashtags || [];
+  } catch(e) {}
+  const tagStr = hashtags.slice(0, 3).map(h => '#' + h).join(' ');
+  return title + (tagStr ? '\n\n' + tagStr : '') + '\n\nashokva.net';
 }
 
 function shareBluesky() {
   const text = encodeURIComponent(getShareText());
-  window.open(`https://bsky.app/intent/compose?text=${text}`, '_blank');
+  window.open('https://bsky.app/intent/compose?text=' + text, '_blank');
 }
 
 function shareX() {
   const text = encodeURIComponent(getShareText());
-  window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank');
+  window.open('https://twitter.com/intent/tweet?text=' + text, '_blank');
 }
 
 function shareWhatsApp() {
   const text = encodeURIComponent(getShareText());
-  window.open(`https://wa.me/?text=${text}`, '_blank');
+  // Use web.whatsapp.com on desktop, wa.me on mobile
+  const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent);
+  const url = isMobile
+    ? 'https://wa.me/?text=' + text
+    : 'https://web.whatsapp.com/send?text=' + text;
+  window.open(url, '_blank');
 }
 
 function shareTelegram() {
   const text = encodeURIComponent(getShareText());
-  window.open(`https://t.me/share/url?url=ashokva.net&text=${text}`, '_blank');
+  window.open('https://t.me/share/url?url=https%3A%2F%2Fashokva.net&text=' + text, '_blank');
 }
 
 function shareInstagram() {
   navigator.clipboard.writeText(getShareText()).then(() => {
+    alert('Caption copied to clipboard. Open Instagram and paste it.');
+  }).catch(() => {
+    // Fallback if clipboard fails
+    const ta = document.createElement('textarea');
+    ta.value = getShareText();
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
     alert('Caption copied. Open Instagram and paste it.');
   });
 }
 
 function copyText() {
-  navigator.clipboard.writeText(getShareText()).then(() => alert('Copied!'));
+  const text = getShareText();
+  navigator.clipboard.writeText(text).then(() => {
+    alert('Copied to clipboard!');
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    alert('Copied!');
+  });
 }
 
 async function downloadPng() {
