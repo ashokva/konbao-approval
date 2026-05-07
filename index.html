@@ -398,6 +398,7 @@ function renderPost(data) {
   const blogBody = blogData.body || data.blog_body || '';
   const hashtags = blogData.hashtags || [];
   const blogTitle = data.blog_title || '';
+  const blogSubtitle = blogData.subtitle || '';
 
   const cardUrl = data.png_r2_key
     ? `${WORKER_URL}/card/${data.date}`
@@ -435,6 +436,7 @@ function renderPost(data) {
       </div>
       <div class="blog-title-wrap">
         <textarea class="blog-title" id="blog-title" rows="2" placeholder="Blog title...">${escHtml(blogTitle)}</textarea>
+        ${blogSubtitle ? `<textarea class="blog-body" id="blog-subtitle" rows="2" style="font-size:13px;color:var(--text-muted);margin-top:4px" placeholder="Subtitle...">${escHtml(blogSubtitle)}</textarea>` : ''}
       </div>
       <div class="blog-body-wrap">
         <textarea class="blog-body" id="blog-body" rows="12" placeholder="Blog content..." oninput="updateCharCount()">${escHtml(blogBody)}</textarea>
