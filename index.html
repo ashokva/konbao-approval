@@ -5,343 +5,504 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>KON-BAO — Today's Post</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital@0;1&family=Courier+Prime:wght@400;700&family=Inter:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Courier+Prime:wght@400;700&family=Inter:wght@300;400;500;600&display=swap');
 
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  :root {
-    --warm-bg: #F5F0E8;
-    --warm-surface: #EDE8DE;
-    --warm-border: rgba(0,0,0,0.1);
-    --text-primary: #1A1A18;
-    --text-secondary: #6B6860;
-    --text-muted: #9B9890;
-    --teal: #0F6E56;
-    --teal-light: #E1F5EE;
-    --red: #A32D2D;
-    --red-light: #FCEBEB;
-  }
+:root {
+  --ink: #1C1917;
+  --ink-2: #44403C;
+  --ink-3: #78716C;
+  --ink-4: #A8A29E;
+  --paper: #FAFAF8;
+  --paper-2: #F5F4F0;
+  --border: rgba(28,25,23,0.08);
+  --accent: #D97706;
+  --accent-light: #FEF3C7;
+  --green: #059669;
+  --green-light: #D1FAE5;
+  --red: #DC2626;
+  --red-light: #FEE2E2;
+  --blue: #2563EB;
+  --blue-light: #DBEAFE;
+  --purple: #7C3AED;
+  --purple-light: #EDE9FE;
+  --pink: #DB2777;
+  --pink-light: #FCE7F3;
+}
 
-  body {
-    background: var(--warm-bg);
-    font-family: 'Inter', sans-serif;
-    color: var(--text-primary);
-    min-height: 100vh;
-    padding: 0 0 120px;
-  }
+html { scroll-behavior: smooth; }
 
-  /* ── Header ── */
-  .header {
-    padding: 20px 20px 12px;
-    border-bottom: 0.5px solid var(--warm-border);
-    background: var(--warm-bg);
-    position: sticky;
-    top: 0;
-    z-index: 10;
-  }
-  .header-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-  .header-title {
-    font-family: 'Courier Prime', monospace;
-    font-size: 13px;
-    letter-spacing: 3px;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-  }
-  .header-date {
-    font-size: 12px;
-    color: var(--text-muted);
-  }
-  .status-pill {
-    font-size: 11px;
-    padding: 3px 10px;
-    border-radius: 20px;
-    font-weight: 500;
-    background: var(--warm-surface);
-    color: var(--text-secondary);
-  }
-  .status-pill.ready { background: #E1F5EE; color: #0F6E56; }
-  .status-pill.loading { background: var(--warm-surface); color: var(--text-muted); }
-  .status-pill.error { background: #FCEBEB; color: #A32D2D; }
+body {
+  background: var(--paper);
+  font-family: 'Inter', sans-serif;
+  color: var(--ink);
+  min-height: 100vh;
+  padding-bottom: 100px;
+}
 
-  /* ── Sections ── */
-  .section {
-    margin: 16px 16px 0;
-    background: #fff;
-    border-radius: 16px;
-    border: 0.5px solid var(--warm-border);
-    overflow: hidden;
-  }
+/* ── Toast notification ─────────────────────────────────────── */
+.toast {
+  position: fixed;
+  bottom: 110px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--ink);
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 500;
+  opacity: 0;
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 100;
+}
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.toast.success { background: var(--green); }
+.toast.info { background: var(--blue); }
 
-  .section-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px 16px;
-    border-bottom: 0.5px solid var(--warm-border);
-  }
-  .section-label {
-    font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    color: var(--text-muted);
-  }
+/* ── Header ─────────────────────────────────────────────────── */
+.header {
+  padding: 16px 20px;
+  background: var(--paper);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.header-left { display: flex; flex-direction: column; gap: 2px; }
+.header-brand {
+  font-family: 'Courier Prime', monospace;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 4px;
+  color: var(--ink);
+}
+.header-date {
+  font-size: 11px;
+  color: var(--ink-4);
+  letter-spacing: 0.3px;
+}
+.status-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 100px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  background: var(--paper-2);
+  color: var(--ink-3);
+  border: 1px solid var(--border);
+}
+.status-pill.ready { background: var(--green-light); color: var(--green); border-color: transparent; }
+.status-pill.posted { background: var(--blue-light); color: var(--blue); border-color: transparent; }
+.status-pill.error { background: var(--red-light); color: var(--red); border-color: transparent; }
 
-  /* Toggle */
-  .toggle {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    cursor: pointer;
-  }
-  .toggle-track {
-    width: 36px;
-    height: 20px;
-    border-radius: 10px;
-    background: #ddd;
-    position: relative;
-    transition: background 0.2s;
-  }
-  .toggle-track.on { background: var(--teal); }
-  .toggle-thumb {
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: #fff;
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    transition: left 0.2s;
-  }
-  .toggle-track.on .toggle-thumb { left: 18px; }
-  .toggle-label { font-size: 12px; color: var(--text-secondary); }
+/* ── Posted banner ───────────────────────────────────────────── */
+.posted-banner {
+  margin: 16px 16px 0;
+  padding: 12px 16px;
+  background: var(--green-light);
+  border-radius: 12px;
+  font-size: 13px;
+  color: var(--green);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
-  /* ── Card section ── */
-  .card-preview {
-    padding: 16px;
-    display: flex;
-    justify-content: center;
-  }
-  .card-preview img, .card-preview object {
-    width: 100%;
-    max-width: 320px;
-    border-radius: 10px;
-    display: block;
-  }
-  .card-placeholder {
-    width: 100%;
-    max-width: 320px;
-    aspect-ratio: 1;
-    background: var(--warm-surface);
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-muted);
-    font-size: 13px;
-  }
+/* ── Card section ────────────────────────────────────────────── */
+.card-section {
+  margin: 20px 16px 0;
+}
+.card-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.section-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+.card-actions { display: flex; align-items: center; gap: 8px; }
+.pill-btn {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 14px;
+  border-radius: 100px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--ink-2);
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  transition: all 0.15s;
+}
+.pill-btn:hover { background: var(--paper-2); }
+.pill-btn:active { opacity: 0.7; }
 
-  /* ── Blog section ── */
-  .blog-title-wrap { padding: 14px 16px 0; }
-  .blog-title {
-    font-family: 'Playfair Display', serif;
-    font-size: 18px;
-    line-height: 1.4;
-    color: var(--text-primary);
-    border: none;
-    background: transparent;
-    width: 100%;
-    resize: none;
-    outline: none;
-    font-weight: 400;
-  }
-  .blog-body-wrap { padding: 8px 16px 14px; }
-  .blog-body {
-    font-size: 14px;
-    line-height: 1.75;
-    color: var(--text-secondary);
-    border: none;
-    background: transparent;
-    width: 100%;
-    resize: none;
-    outline: none;
-    min-height: 180px;
-    font-family: 'Inter', sans-serif;
-  }
-  .blog-char-count {
-    font-size: 11px;
-    color: var(--text-muted);
-    text-align: right;
-    padding: 0 16px 12px;
-  }
+.card-frame {
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  padding: 16px;
+  display: flex;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.card-frame img {
+  width: 100%;
+  max-width: 340px;
+  border-radius: 10px;
+  display: block;
+}
+.card-placeholder {
+  width: 100%;
+  max-width: 340px;
+  aspect-ratio: 1;
+  background: var(--paper-2);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-4);
+  font-size: 13px;
+}
 
-  /* ── Hashtags section ── */
-  .hashtags-wrap {
-    padding: 14px 16px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-  .hashtag {
-    font-size: 13px;
-    padding: 5px 12px;
-    border-radius: 20px;
-    background: var(--teal-light);
-    color: var(--teal);
-    font-family: 'Courier Prime', monospace;
-    letter-spacing: 0.5px;
-  }
-  .hashtag-copy-btn {
-    font-size: 12px;
-    padding: 5px 12px;
-    border-radius: 20px;
-    background: var(--warm-surface);
-    color: var(--text-secondary);
-    border: 0.5px solid var(--warm-border);
-    cursor: pointer;
-    font-family: 'Inter', sans-serif;
-  }
-  .hashtag-copy-btn:active { opacity: 0.7; }
+/* Toggle pill */
+.toggle-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 4px 10px 4px 6px;
+  border-radius: 100px;
+  border: 1px solid var(--border);
+  background: #fff;
+  transition: all 0.15s;
+}
+.toggle-pill.active { background: var(--green-light); border-color: var(--green); }
+.toggle-dot {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: var(--paper-2);
+  border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px;
+  transition: all 0.15s;
+}
+.toggle-pill.active .toggle-dot { background: var(--green); border-color: var(--green); color: #fff; }
+.toggle-pill-label { font-size: 12px; font-weight: 500; color: var(--ink-3); }
+.toggle-pill.active .toggle-pill-label { color: var(--green); }
 
-  /* ── Share section ── */
-  .share-row {
-    padding: 14px 16px;
-    display: flex;
-    gap: 10px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-  .share-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 5px;
-    min-width: 56px;
-    cursor: pointer;
-    border: none;
-    background: transparent;
-  }
-  .share-icon {
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 20px;
-  }
-  .share-icon.bluesky  { background: #E6F1FB; }
-  .share-icon.x        { background: #1A1A1A; }
-  .share-icon.instagram{ background: #FBEAF0; }
-  .share-icon.whatsapp { background: #EAF3DE; }
-  .share-icon.telegram { background: #E6F1FB; }
-  .share-icon.copy     { background: var(--warm-surface); }
-  .share-name {
-    font-size: 10px;
-    color: var(--text-muted);
-    text-align: center;
-  }
+/* ── Article section ─────────────────────────────────────────── */
+.article-section {
+  margin: 24px 16px 0;
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  overflow: hidden;
+}
+.article-top {
+  padding: 20px 20px 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.article-meta { flex: 1; }
 
-  /* ── Footer actions ── */
-  .footer-actions {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    padding: 12px 16px;
-    background: var(--warm-bg);
-    border-top: 0.5px solid var(--warm-border);
-    display: flex;
-    gap: 10px;
-  }
-  .btn {
-    flex: 1;
-    padding: 14px;
-    border-radius: 12px;
-    font-size: 15px;
-    font-weight: 500;
-    border: none;
-    cursor: pointer;
-    font-family: 'Inter', sans-serif;
-    transition: opacity 0.15s;
-  }
-  .btn:active { opacity: 0.8; }
-  .btn-approve {
-    background: var(--teal);
-    color: #fff;
-  }
-  .btn-skip {
-    background: var(--warm-surface);
-    color: var(--text-secondary);
-    border: 0.5px solid var(--warm-border);
-    flex: 0 0 90px;
-  }
-  .btn-approve.posted {
-    background: #639922;
-  }
-  .btn-approve:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
+.article-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 22px;
+  line-height: 1.35;
+  color: var(--ink);
+  border: none;
+  background: transparent;
+  width: 100%;
+  resize: none;
+  outline: none;
+  font-weight: 700;
+  padding: 0;
+}
+.article-subtitle {
+  font-family: 'Playfair Display', serif;
+  font-size: 15px;
+  line-height: 1.5;
+  font-style: italic;
+  color: var(--ink-3);
+  border: none;
+  background: transparent;
+  width: 100%;
+  resize: none;
+  outline: none;
+  padding: 6px 0 0;
+  margin: 0;
+}
+.article-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 16px 20px;
+}
+.article-body {
+  font-family: 'Playfair Display', serif;
+  font-size: 16px;
+  line-height: 1.85;
+  color: var(--ink-2);
+  border: none;
+  background: transparent;
+  width: 100%;
+  resize: none;
+  outline: none;
+  padding: 0 20px;
+  min-height: 200px;
+}
+.article-footer {
+  padding: 10px 20px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.char-count {
+  font-size: 11px;
+  color: var(--ink-4);
+}
 
-  /* ── Loading / error states ── */
-  .loading-wrap {
-    padding: 40px 16px;
-    text-align: center;
-    color: var(--text-muted);
-    font-size: 14px;
-  }
-  .error-wrap {
-    padding: 20px 16px;
-    text-align: center;
-    color: var(--red);
-    font-size: 14px;
-    background: var(--red-light);
-    margin: 16px;
-    border-radius: 12px;
-  }
+/* ── Hashtags ────────────────────────────────────────────────── */
+.hashtags-section {
+  margin: 16px 16px 0;
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  overflow: hidden;
+}
+.hashtags-header {
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+}
+.hashtags-body {
+  padding: 12px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.hashtag-chip {
+  font-family: 'Courier Prime', monospace;
+  font-size: 13px;
+  padding: 5px 13px;
+  border-radius: 100px;
+  font-weight: 400;
+}
+.hashtag-chip:nth-child(1) { background: var(--accent-light); color: var(--accent); }
+.hashtag-chip:nth-child(2) { background: var(--blue-light); color: var(--blue); }
+.hashtag-chip:nth-child(3) { background: var(--purple-light); color: var(--purple); }
+.hashtag-chip:nth-child(4) { background: var(--pink-light); color: var(--pink); }
+.hashtag-chip:nth-child(5) { background: var(--green-light); color: var(--green); }
 
-  textarea { font-family: inherit; }
-  .skipped-banner {
-    margin: 16px;
-    padding: 14px 16px;
-    background: var(--warm-surface);
-    border-radius: 12px;
-    font-size: 14px;
-    color: var(--text-secondary);
-    text-align: center;
-  }
+/* ── Share section ───────────────────────────────────────────── */
+.share-section {
+  margin: 16px 16px 0;
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  overflow: hidden;
+}
+.share-header {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.share-grid {
+  padding: 14px 16px;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.share-grid::-webkit-scrollbar { display: none; }
+.share-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 60px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+}
+.share-bubble {
+  width: 48px; height: 48px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  transition: transform 0.15s;
+}
+.share-item:active .share-bubble { transform: scale(0.92); }
+.share-bubble.sky   { background: #E0F2FE; }
+.share-bubble.ex    { background: #1A1A1A; color: #fff; font-family: serif; font-size: 17px; font-weight: 700; }
+.share-bubble.gram  { background: linear-gradient(135deg, #FFECD2, #FCB69F, #FF9A9E); }
+.share-bubble.wa    { background: #D1FAE5; }
+.share-bubble.tg    { background: #DBEAFE; }
+.share-bubble.cp    { background: var(--paper-2); }
+.share-name {
+  font-size: 10px;
+  color: var(--ink-4);
+  font-weight: 500;
+}
+
+/* ── Footer ──────────────────────────────────────────────────── */
+.footer {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  padding: 10px 16px;
+  background: rgba(250,250,248,0.95);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 10px;
+}
+.btn-skip {
+  padding: 13px 20px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--ink-3);
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.btn-skip:hover { background: var(--paper-2); }
+.btn-approve {
+  flex: 1;
+  padding: 13px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  border: none;
+  background: var(--ink);
+  color: #fff;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  transition: all 0.15s;
+  letter-spacing: 0.2px;
+}
+.btn-approve:hover { background: #2C2825; }
+.btn-approve:active { opacity: 0.85; }
+.btn-approve:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-approve.posted { background: var(--green); }
+
+/* ── States ──────────────────────────────────────────────────── */
+.loading-state {
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--ink-4);
+  font-size: 14px;
+}
+.loading-state .dot-pulse {
+  display: inline-flex;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+.loading-state .dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--ink-4);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+.loading-state .dot:nth-child(2) { animation-delay: 0.2s; }
+.loading-state .dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes pulse {
+  0%, 60%, 100% { opacity: 0.3; transform: scale(0.8); }
+  30% { opacity: 1; transform: scale(1); }
+}
+.error-state {
+  margin: 20px 16px;
+  padding: 16px 20px;
+  background: var(--red-light);
+  border-radius: 12px;
+  font-size: 14px;
+  color: var(--red);
+  line-height: 1.5;
+}
+.skipped-state {
+  margin: 20px 16px;
+  padding: 20px;
+  background: var(--paper-2);
+  border-radius: 12px;
+  font-size: 14px;
+  color: var(--ink-3);
+  text-align: center;
+}
+
+textarea { font-family: inherit; }
 </style>
 </head>
 <body>
 
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Header -->
 <div class="header">
-  <div class="header-top">
-    <span class="header-title">KON&#x2013;BAO</span>
-    <span class="status-pill loading" id="status-pill">Loading...</span>
+  <div class="header-left">
+    <div class="header-brand">KON&#x2013;BAO</div>
+    <div class="header-date" id="header-date"></div>
   </div>
-  <div class="header-date" id="header-date"></div>
+  <div class="status-pill" id="status-pill">Loading</div>
 </div>
 
 <div id="main-content">
-  <div class="loading-wrap">Fetching today's post...</div>
+  <div class="loading-state">
+    <div class="dot-pulse">
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+    </div>
+    <div>Fetching today's post</div>
+  </div>
 </div>
 
-<div class="footer-actions" id="footer-actions" style="display:none">
-  <button class="btn btn-skip" id="btn-skip" onclick="skipToday()">Skip</button>
-  <button class="btn btn-approve" id="btn-approve" onclick="approvePost()">Approve &amp; Post</button>
+<div class="footer" id="footer" style="display:none">
+  <button class="btn-skip" id="btn-skip" onclick="skipToday()">Skip</button>
+  <button class="btn-approve" id="btn-approve" onclick="approvePost()">Approve &amp; Post</button>
 </div>
 
 <script>
 const WORKER_URL = 'https://konbao-pipeline.ashokva.workers.dev';
-
 let postData = null;
 let includeCard = true;
 let includeBlog = true;
+
+function toast(msg, type = 'default', duration = 2500) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (type !== 'default' ? ' ' + type : '');
+  setTimeout(() => { el.className = 'toast'; }, duration);
+}
 
 function today() {
   const now = new Date();
@@ -349,142 +510,121 @@ function today() {
   return ist.toISOString().slice(0, 10);
 }
 
-function formatDate(dateStr) {
-  const d = new Date(dateStr + 'T00:00:00');
-  return d.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+function formatDate(d) {
+  return new Date(d + 'T00:00:00').toLocaleDateString('en-IN', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+  });
 }
 
 async function loadPost() {
-  const dateStr = today();
-  document.getElementById('header-date').textContent = formatDate(dateStr);
-
+  document.getElementById('header-date').textContent = formatDate(today());
   try {
     const res = await fetch(`${WORKER_URL}/status`);
     const data = await res.json();
-
-    if (!data || data.message) {
-      showError('No post found for today. Pipeline may not have run yet.');
-      return;
-    }
-
+    if (!data || data.message) { showError('No post found for today. Pipeline may not have run yet.'); return; }
     postData = data;
-
-    if (data.status === 'approved') {
-      renderPost(data);
-      showApproved(data);
-      return;
-    }
-
-    if (data.status === 'skipped') {
-      showSkipped(data);
-      return;
-    }
-
+    if (data.status === 'approved') { renderPost(data); showApproved(); return; }
+    if (data.status === 'skipped') { showSkipped(); return; }
     renderPost(data);
-
-  } catch (err) {
+  } catch(err) {
     showError('Could not connect to pipeline. ' + err.message);
   }
 }
 
 function renderPost(data) {
-  const pill = document.getElementById('status-pill');
-  pill.textContent = 'Ready';
-  pill.className = 'status-pill ready';
+  document.getElementById('status-pill').textContent = 'Ready';
+  document.getElementById('status-pill').className = 'status-pill ready';
 
-  const blogData = (() => {
-    try { return JSON.parse(data.blog_body || '{}'); } catch(e) { return { body: data.blog_body, hashtags: [] }; }
-  })();
+  let blogData = {};
+  try { blogData = JSON.parse(data.blog_body || '{}'); } catch(e) {}
   const blogBody = blogData.body || data.blog_body || '';
   const hashtags = blogData.hashtags || [];
   const blogTitle = data.blog_title || '';
   const blogSubtitle = blogData.subtitle || '';
-
-  const cardUrl = data.png_r2_key
-    ? `${WORKER_URL}/card/${data.date}`
-    : null;
+  const cardUrl = data.png_r2_key ? `${WORKER_URL}/card/${data.date}` : null;
 
   document.getElementById('main-content').innerHTML = `
 
-    <!-- Card section -->
-    <div class="section">
-      <div class="section-header">
+    <!-- Card -->
+    <div class="card-section">
+      <div class="card-section-header">
         <span class="section-label">Visual Card</span>
-        <div style="display:flex;align-items:center;gap:10px">
-          <button class="hashtag-copy-btn" id="download-btn" onclick="downloadPng()">Download PNG</button>
-          <div class="toggle" onclick="toggleSection('card', this)">
-            <div class="toggle-track on" id="toggle-card"><div class="toggle-thumb"></div></div>
-            <span class="toggle-label">Include</span>
+        <div class="card-actions">
+          <button class="pill-btn" id="download-btn" onclick="downloadPng()">↓ PNG</button>
+          <div class="toggle-pill active" id="toggle-card-pill" onclick="toggleCard(this)">
+            <div class="toggle-dot">✓</div>
+            <span class="toggle-pill-label">Include</span>
           </div>
         </div>
       </div>
-      <div class="card-preview">
+      <div class="card-frame">
         ${cardUrl
-          ? `<img src="${cardUrl}" alt="Today's KON-BAO card" onerror="this.outerHTML='<div class=card-placeholder>Card preview unavailable</div>'">`
+          ? `<img src="${cardUrl}" alt="KON-BAO card" onerror="this.outerHTML='<div class=card-placeholder>Card unavailable</div>'">`
           : `<div class="card-placeholder">Card generating...</div>`}
       </div>
     </div>
 
-    <!-- Blog section -->
-    <div class="section">
-      <div class="section-header">
-        <span class="section-label">Blog Draft</span>
-        <div class="toggle" onclick="toggleSection('blog', this)">
-          <div class="toggle-track on" id="toggle-blog"><div class="toggle-thumb"></div></div>
-          <span class="toggle-label">Include</span>
+    <!-- Article -->
+    <div class="article-section">
+      <div class="article-top">
+        <div class="article-meta">
+          <textarea class="article-title" id="blog-title" rows="2" placeholder="Title...">${escHtml(blogTitle)}</textarea>
+          ${blogSubtitle ? `<textarea class="article-subtitle" id="blog-subtitle" rows="2" placeholder="Subtitle...">${escHtml(blogSubtitle)}</textarea>` : ''}
+        </div>
+        <div class="toggle-pill active" id="toggle-blog-pill" onclick="toggleBlog(this)" style="flex-shrink:0;margin-top:4px">
+          <div class="toggle-dot">✓</div>
+          <span class="toggle-pill-label">Include</span>
         </div>
       </div>
-      <div class="blog-title-wrap">
-        <textarea class="blog-title" id="blog-title" rows="2" placeholder="Blog title...">${escHtml(blogTitle)}</textarea>
-        ${blogSubtitle ? `<textarea class="blog-body" id="blog-subtitle" rows="2" style="font-size:13px;color:var(--text-muted);margin-top:4px" placeholder="Subtitle...">${escHtml(blogSubtitle)}</textarea>` : ''}
+      <div class="article-divider"></div>
+      <textarea class="article-body" id="blog-body" placeholder="Blog content..." oninput="updateCharCount()">${escHtml(blogBody)}</textarea>
+      <div class="article-footer">
+        <span class="char-count" id="char-count">${blogBody.length} chars</span>
+        <button class="pill-btn" onclick="copyBlog()">Copy blog</button>
       </div>
-      <div class="blog-body-wrap">
-        <textarea class="blog-body" id="blog-body" rows="12" placeholder="Blog content..." oninput="updateCharCount()">${escHtml(blogBody)}</textarea>
-      </div>
-      <div class="blog-char-count" id="char-count">${blogBody.length} chars</div>
     </div>
 
-    <!-- Hashtags section -->
+    <!-- Hashtags -->
     ${hashtags.length > 0 ? `
-    <div class="section">
-      <div class="section-header">
+    <div class="hashtags-section">
+      <div class="hashtags-header">
         <span class="section-label">Hashtags</span>
-        <button class="hashtag-copy-btn" onclick="copyHashtags()">Copy all</button>
+        <button class="pill-btn" onclick="copyHashtags()">Copy all</button>
       </div>
-      <div class="hashtags-wrap" id="hashtags-wrap">
-        ${hashtags.map(h => `<span class="hashtag">#${escHtml(h)}</span>`).join('')}
+      <div class="hashtags-body">
+        ${hashtags.map(h => `<span class="hashtag-chip">#${escHtml(h)}</span>`).join('')}
       </div>
     </div>
     ` : ''}
 
-    <!-- Share section -->
-    <div class="section">
-      <div class="section-header">
+    <!-- Share -->
+    <div class="share-section">
+      <div class="share-header">
         <span class="section-label">Share</span>
       </div>
-      <div class="share-row">
-        <button class="share-btn" onclick="shareBluesky()">
-          <div class="share-icon bluesky">🦋</div>
+      <div class="share-grid">
+        <button class="share-item" onclick="shareBluesky()">
+          <div class="share-bubble sky">🦋</div>
           <span class="share-name">Bluesky</span>
         </button>
-        <button class="share-btn" onclick="shareX()">
-          <div class="share-icon x" style="color:#fff;font-family:monospace;font-weight:700;font-size:16px;">𝕏</div>
+        <button class="share-item" onclick="shareX()">
+          <div class="share-bubble ex">𝕏</div>
           <span class="share-name">X</span>
         </button>
-        <button class="share-btn" onclick="shareInstagram()">
-          <div class="share-icon instagram">📷</div>
+        <button class="share-item" onclick="shareInstagram()">
+          <div class="share-bubble gram">📷</div>
           <span class="share-name">Instagram</span>
         </button>
-        <button class="share-btn" onclick="shareWhatsApp()">
-          <div class="share-icon whatsapp">💬</div>
+        <button class="share-item" onclick="shareWhatsApp()">
+          <div class="share-bubble wa">💬</div>
           <span class="share-name">WhatsApp</span>
         </button>
-        <button class="share-btn" onclick="shareTelegram()">
-          <div class="share-icon telegram">✈️</div>
+        <button class="share-item" onclick="shareTelegram()">
+          <div class="share-bubble tg">✈️</div>
           <span class="share-name">Telegram</span>
         </button>
-        <button class="share-btn" onclick="copyText()">
-          <div class="share-icon copy">📋</div>
+        <button class="share-item" onclick="copyText()">
+          <div class="share-bubble cp">📋</div>
           <span class="share-name">Copy</span>
         </button>
       </div>
@@ -492,83 +632,53 @@ function renderPost(data) {
 
   `;
 
-  document.getElementById('footer-actions').style.display = 'flex';
+  document.getElementById('footer').style.display = 'flex';
 }
 
-function toggleSection(section, el) {
-  const track = el.querySelector('.toggle-track');
-  track.classList.toggle('on');
-  if (section === 'card') includeCard = track.classList.contains('on');
-  if (section === 'blog') includeBlog = track.classList.contains('on');
+function toggleCard(el) {
+  el.classList.toggle('active');
+  includeCard = el.classList.contains('active');
+  el.querySelector('.toggle-dot').textContent = includeCard ? '✓' : '';
+  el.querySelector('.toggle-pill-label').textContent = includeCard ? 'Include' : 'Skip';
+}
+
+function toggleBlog(el) {
+  el.classList.toggle('active');
+  includeBlog = el.classList.contains('active');
+  el.querySelector('.toggle-dot').textContent = includeBlog ? '✓' : '';
+  el.querySelector('.toggle-pill-label').textContent = includeBlog ? 'Include' : 'Skip';
 }
 
 function updateCharCount() {
-  const body = document.getElementById('blog-body');
-  if (body) document.getElementById('char-count').textContent = body.value.length + ' chars';
+  const b = document.getElementById('blog-body');
+  if (b) document.getElementById('char-count').textContent = b.value.length + ' chars';
 }
 
 function copyHashtags() {
-  const tags = postData ? (JSON.parse(postData.blog_body || '{}').hashtags || []) : [];
-  const text = tags.map(h => '#' + h).join(' ');
-  navigator.clipboard.writeText(text).then(() => alert('Hashtags copied!'));
+  let tags = [];
+  try { tags = JSON.parse(postData?.blog_body || '{}').hashtags || []; } catch(e) {}
+  writeClipboard(tags.map(h => '#' + h).join(' '), 'Hashtags copied');
+}
+
+function copyBlog() {
+  const title = document.getElementById('blog-title')?.value || '';
+  const subtitle = document.getElementById('blog-subtitle')?.value || '';
+  const body = document.getElementById('blog-body')?.value || '';
+  const text = [title, subtitle, '', body].filter(Boolean).join('\n');
+  writeClipboard(text, 'Blog copied');
 }
 
 function getShareText() {
-  const titleEl = document.getElementById('blog-title');
-  const title = titleEl ? titleEl.value : (postData ? postData.blog_title || '' : '');
-  let hashtags = [];
-  try {
-    const parsed = JSON.parse(postData?.blog_body || '{}');
-    hashtags = parsed.hashtags || [];
-  } catch(e) {}
-  const tagStr = hashtags.slice(0, 3).map(h => '#' + h).join(' ');
+  const title = document.getElementById('blog-title')?.value || postData?.blog_title || '';
+  let tags = [];
+  try { tags = JSON.parse(postData?.blog_body || '{}').hashtags || []; } catch(e) {}
+  const tagStr = tags.slice(0, 3).map(h => '#' + h).join(' ');
   return title + (tagStr ? '\n\n' + tagStr : '') + '\n\nashokva.net';
 }
 
-function shareBluesky() {
-  const text = encodeURIComponent(getShareText());
-  window.open('https://bsky.app/intent/compose?text=' + text, '_blank');
-}
-
-function shareX() {
-  const text = encodeURIComponent(getShareText());
-  window.open('https://twitter.com/intent/tweet?text=' + text, '_blank');
-}
-
-function shareWhatsApp() {
-  const text = encodeURIComponent(getShareText());
-  // Use web.whatsapp.com on desktop, wa.me on mobile
-  const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent);
-  const url = isMobile
-    ? 'https://wa.me/?text=' + text
-    : 'https://web.whatsapp.com/send?text=' + text;
-  window.open(url, '_blank');
-}
-
-function shareTelegram() {
-  const text = encodeURIComponent(getShareText());
-  window.open('https://t.me/share/url?url=https%3A%2F%2Fashokva.net&text=' + text, '_blank');
-}
-
-function shareInstagram() {
-  navigator.clipboard.writeText(getShareText()).then(() => {
-    alert('Caption copied to clipboard. Open Instagram and paste it.');
-  }).catch(() => {
-    // Fallback if clipboard fails
-    const ta = document.createElement('textarea');
-    ta.value = getShareText();
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-    alert('Caption copied. Open Instagram and paste it.');
-  });
-}
-
-function copyText() {
-  const text = getShareText();
+function writeClipboard(text, successMsg) {
   navigator.clipboard.writeText(text).then(() => {
-    alert('Copied to clipboard!');
+    toast(successMsg, 'success');
   }).catch(() => {
     const ta = document.createElement('textarea');
     ta.value = text;
@@ -576,61 +686,53 @@ function copyText() {
     ta.select();
     document.execCommand('copy');
     document.body.removeChild(ta);
-    alert('Copied!');
+    toast(successMsg, 'success');
   });
 }
 
+function shareBluesky() { window.open('https://bsky.app/intent/compose?text=' + encodeURIComponent(getShareText()), '_blank'); }
+function shareX() { window.open('https://twitter.com/intent/tweet?text=' + encodeURIComponent(getShareText()), '_blank'); }
+function shareWhatsApp() {
+  const t = encodeURIComponent(getShareText());
+  window.open(/iPhone|iPad|Android/i.test(navigator.userAgent) ? 'https://wa.me/?text=' + t : 'https://web.whatsapp.com/send?text=' + t, '_blank');
+}
+function shareTelegram() { window.open('https://t.me/share/url?url=https%3A%2F%2Fashokva.net&text=' + encodeURIComponent(getShareText()), '_blank'); }
+function shareInstagram() { writeClipboard(getShareText(), 'Caption copied — open Instagram to paste'); }
+function copyText() { writeClipboard(getShareText(), 'Copied to clipboard'); }
+
 async function downloadPng() {
   const btn = document.getElementById('download-btn');
-  const original = btn.textContent;
-  btn.textContent = 'Converting...';
+  btn.textContent = '...';
   btn.disabled = true;
-
   try {
-    const cardUrl = `${WORKER_URL}/card/${postData.date}`;
-    const pngBlob = await svgToPngBlob(cardUrl);
+    const pngBlob = await svgToPngBlob(`${WORKER_URL}/card/${postData.date}`);
     const url = URL.createObjectURL(pngBlob);
     const a = document.createElement('a');
-    a.href = url;
-    a.download = `konbao-${postData.date}.png`;
-    a.click();
+    a.href = url; a.download = `konbao-${postData.date}.png`; a.click();
     URL.revokeObjectURL(url);
-    btn.textContent = 'Downloaded ✓';
-    setTimeout(() => {
-      btn.textContent = original;
-      btn.disabled = false;
-    }, 2000);
+    btn.textContent = '✓ PNG';
+    toast('Image downloaded', 'success');
+    setTimeout(() => { btn.textContent = '↓ PNG'; btn.disabled = false; }, 2000);
   } catch(e) {
-    btn.textContent = 'Failed — try again';
-    btn.disabled = false;
+    btn.textContent = '↓ PNG'; btn.disabled = false;
+    toast('Download failed — try again');
   }
 }
 
 async function svgToPngBlob(svgUrl) {
-  // Fetch SVG, draw to canvas, export as PNG blob
-  const svgRes = await fetch(svgUrl);
-  const svgText = await svgRes.text();
+  const svgText = await (await fetch(svgUrl)).text();
   const blob = new Blob([svgText], { type: 'image/svg+xml' });
   const url = URL.createObjectURL(blob);
-
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      canvas.width = 1080;
-      canvas.height = 1080;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, 1080, 1080);
+      canvas.width = canvas.height = 1080;
+      canvas.getContext('2d').drawImage(img, 0, 0, 1080, 1080);
       URL.revokeObjectURL(url);
-      canvas.toBlob(pngBlob => {
-        if (pngBlob) resolve(pngBlob);
-        else reject(new Error('Canvas PNG export failed'));
-      }, 'image/png');
+      canvas.toBlob(b => b ? resolve(b) : reject(new Error('Export failed')), 'image/png');
     };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error('SVG load failed'));
-    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Load failed')); };
     img.src = url;
   });
 }
@@ -638,110 +740,81 @@ async function svgToPngBlob(svgUrl) {
 async function approvePost() {
   const btn = document.getElementById('btn-approve');
   btn.disabled = true;
-  btn.textContent = 'Converting card...';
-
+  btn.textContent = 'Converting...';
   const title = document.getElementById('blog-title')?.value || postData.blog_title;
   const body = document.getElementById('blog-body')?.value || '';
-
-  // Convert SVG card to PNG in the browser
   let pngBase64 = null;
   if (includeCard && postData.png_r2_key) {
     try {
-      btn.textContent = 'Converting card...';
-      const cardUrl = `${WORKER_URL}/card/${postData.date}`;
-      const pngBlob = await svgToPngBlob(cardUrl);
-      const arrayBuf = await pngBlob.arrayBuffer();
-      const bytes = new Uint8Array(arrayBuf);
-      let binary = '';
-      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-      pngBase64 = btoa(binary);
-    } catch(e) {
-      console.log('PNG conversion failed, posting without image:', e.message);
-    }
+      const pngBlob = await svgToPngBlob(`${WORKER_URL}/card/${postData.date}`);
+      const buf = await pngBlob.arrayBuffer();
+      const bytes = new Uint8Array(buf);
+      let bin = '';
+      for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+      pngBase64 = btoa(bin);
+    } catch(e) { console.log('PNG conversion failed:', e.message); }
   }
-
   btn.textContent = 'Posting...';
-
   try {
     const res = await fetch(`${WORKER_URL}/approve`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        date: postData.date,
-        postId: postData.id,
-        blogTitle: title,
-        blogBody: body,
-        includeCard,
-        includeBlog,
-        pngBase64,
-      }),
+      body: JSON.stringify({ date: postData.date, postId: postData.id, blogTitle: title, blogBody: body, includeCard, includeBlog, pngBase64 }),
     });
-
     const result = await res.json();
-
     if (result.status === 'approved') {
-      btn.textContent = 'Posted to Bluesky ✓';
-      btn.className = 'btn btn-approve posted';
-      document.getElementById('status-pill').textContent = 'Approved';
-      document.getElementById('status-pill').className = 'status-pill ready';
+      btn.textContent = 'Posted ✓';
+      btn.className = 'btn-approve posted';
+      document.getElementById('status-pill').textContent = 'Posted';
+      document.getElementById('status-pill').className = 'status-pill posted';
       document.getElementById('btn-skip').style.display = 'none';
+      toast('Posted to Bluesky ✓', 'success', 3000);
+      showApproved();
     } else {
-      btn.disabled = false;
-      btn.textContent = 'Approve & Post';
-      alert('Something went wrong: ' + (result.error || 'Unknown error'));
+      btn.disabled = false; btn.textContent = 'Approve & Post';
+      toast('Something went wrong — try again');
     }
   } catch(err) {
-    btn.disabled = false;
-    btn.textContent = 'Approve & Post';
-    alert('Error: ' + err.message);
+    btn.disabled = false; btn.textContent = 'Approve & Post';
+    toast('Error: ' + err.message);
   }
 }
 
 async function skipToday() {
-  if (!confirm('Skip today\'s post?')) return;
-
+  if (!confirm('Skip today?')) return;
   await fetch(`${WORKER_URL}/skip`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ date: postData?.date }),
   });
-
-  showSkipped(postData);
+  showSkipped();
 }
 
-function showApproved(data) {
-  document.getElementById('status-pill').textContent = 'Posted';
-  document.getElementById('status-pill').className = 'status-pill ready';
-  // Show a confirmation banner but keep rendering the full post
+function showApproved() {
+  const existing = document.getElementById('posted-banner');
+  if (existing) return;
   const banner = document.createElement('div');
-  banner.className = 'skipped-banner';
-  banner.style.background = '#E1F5EE';
-  banner.style.color = '#0F6E56';
-  banner.style.margin = '16px 16px 0';
-  banner.textContent = 'Posted to Bluesky ✓ — share buttons still active below';
+  banner.id = 'posted-banner';
+  banner.className = 'posted-banner';
+  banner.innerHTML = '<span>✓</span> Posted to Bluesky — share buttons still active below';
   document.getElementById('main-content').prepend(banner);
-  // Hide the approve/skip buttons
-  document.getElementById('footer-actions').style.display = 'none';
+  document.getElementById('footer').style.display = 'none';
 }
 
-function showSkipped(data) {
+function showSkipped() {
   document.getElementById('status-pill').textContent = 'Skipped';
   document.getElementById('status-pill').className = 'status-pill';
-  document.getElementById('main-content').innerHTML = `
-    <div class="skipped-banner">Today's post was skipped.</div>
-  `;
+  document.getElementById('main-content').innerHTML = '<div class="skipped-state">Today\'s post was skipped.</div>';
+  document.getElementById('footer').style.display = 'none';
 }
 
 function showError(msg) {
   document.getElementById('status-pill').textContent = 'Error';
   document.getElementById('status-pill').className = 'status-pill error';
-  document.getElementById('main-content').innerHTML = `<div class="error-wrap">${msg}</div>`;
+  document.getElementById('main-content').innerHTML = `<div class="error-state">${msg}</div>`;
 }
 
-function escHtml(str) {
-  return String(str || '')
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
 loadPost();
