@@ -525,6 +525,8 @@ async function loadPost() {
     postData = data;
     if (data.status === 'approved') { renderPost(data); showApproved(); return; }
     if (data.status === 'skipped') { showSkipped(); return; }
+    // Blog missing — show regenerate option
+    if (!data.blog_title) { renderPost(data); showRegenerateBanner(); return; }
     renderPost(data);
   } catch(err) {
     showError('Could not connect to pipeline. ' + err.message);
@@ -787,6 +789,39 @@ async function skipToday() {
     body: JSON.stringify({ date: postData?.date }),
   });
   showSkipped();
+}
+
+function showRegenerateBanner() {
+  const banner = document.createElement('div');
+  banner.id = 'regen-banner';
+  banner.style.cssText = 'margin:16px 16px 0;padding:14px 16px;background:#FEF3C7;border-radius:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;';
+  banner.innerHTML = `
+    <span style="font-size:13px;color:#92400E;line-height:1.4">Blog didn't generate this morning.</span>
+    <button onclick="regenerateBlog()" id="regen-btn" style="font-size:13px;font-weight:600;padding:8px 16px;border-radius:100px;background:#D97706;color:#fff;border:none;cursor:pointer;white-space:nowrap;font-family:Inter,sans-serif;">Regenerate</button>
+  `;
+  document.getElementById('main-content').prepend(banner);
+}
+
+async function regenerateBlog() {
+  const btn = document.getElementById('regen-btn');
+  btn.textContent = 'Generating...';
+  btn.disabled = true;
+  try {
+    const res = await fetch(`${WORKER_URL}/expand`, { method: 'POST' });
+    const result = await res.json();
+    if (result.status === 'expanded') {
+      toast('Blog generated ✓ — reloading', 'success', 2000);
+      setTimeout(() => location.reload(), 2000);
+    } else {
+      btn.textContent = 'Try again';
+      btn.disabled = false;
+      toast('Failed: ' + (result.error || 'Unknown error'));
+    }
+  } catch(e) {
+    btn.textContent = 'Try again';
+    btn.disabled = false;
+    toast('Error: ' + e.message);
+  }
 }
 
 function showApproved() {
