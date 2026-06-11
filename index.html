@@ -521,13 +521,13 @@ async function loadPost() {
   try {
     const res = await fetch(`${WORKER_URL}/status`);
     const data = await res.json();
-    if (!data || data.message) { showError('No post found for today. Pipeline may not have run yet.'); return; }
+    if (!data || data.message) { showError('No posts found yet.'); return; }
     postData = data;
     if (data.status === 'approved') { renderPost(data); showApproved(); return; }
     if (data.status === 'skipped') { showSkipped(); return; }
-    // Blog missing — show regenerate option
     if (!data.blog_title) { renderPost(data); showRegenerateBanner(); return; }
     renderPost(data);
+    if (data._is_previous) showWaitingBanner(data.date);
   } catch(err) {
     showError('Could not connect to pipeline. ' + err.message);
   }
@@ -789,6 +789,13 @@ async function skipToday() {
     body: JSON.stringify({ date: postData?.date }),
   });
   showSkipped();
+}
+
+function showWaitingBanner(date) {
+  const banner = document.createElement('div');
+  banner.style.cssText = 'margin:16px 16px 0;padding:12px 16px;background:#DBEAFE;border-radius:12px;font-size:13px;color:#1D4ED8;line-height:1.4;';
+  banner.textContent = `Today's post hasn't arrived yet — showing ${date}. Page will update when it does.`;
+  document.getElementById('main-content').prepend(banner);
 }
 
 function showRegenerateBanner() {
